@@ -2,3 +2,4 @@ fastapi==0.111.0
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
 pyTelegramBotAPI==4.19.0
+python-telegram-bot==20.7
