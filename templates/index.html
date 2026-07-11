@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>BotHost — Python & Telegram Bot Hosting</title>
+<title>NpcHosting — Python & Telegram Bot Hosting</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -305,6 +305,8 @@
   .btn-stop  { background:#1a0f1f; color:var(--red);   border:1px solid #3a1a2a; }
   .btn-start { background:#0a1f14; color:var(--green); border:1px solid #0d3320; }
   .btn-warn  { background:#1f1508; color:var(--amber); border:1px solid #3a2a08; }
+  .btn-dl    { background:#0a1220; color:var(--blue);  border:1px solid #1a2a50; }
+  .btn-dl:hover { background:#0d1830; border-color:var(--blue); }
   .btn-ghost { background:var(--bg3); color:var(--dim); border:1px solid var(--border2); }
   .btn-ghost:hover { color:var(--text); border-color:var(--muted); }
 
@@ -393,7 +395,7 @@
     <div class="logo">
       <div class="logo-icon">🤖</div>
       <div>
-        <div class="logo-name">BotHost</div>
+        <div class="logo-name">NpcHosting</div>
         <div class="logo-sub">Python &amp; Telegram Bot Hosting</div>
       </div>
     </div>
@@ -570,6 +572,20 @@ function confirmDelete(id) {
   document.getElementById("confirm-ok").onclick = doDelete;
   document.getElementById("confirm-overlay").classList.add("open");
 }
+async function downloadBot(id, filename) {
+  try {
+    const res = await fetch(`${API}/api/bots/${id}/download`);
+    if (!res.ok) { toast("Download failed", "error"); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename || "bot.py";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast("⬇ " + filename + " downloaded!");
+  } catch(e) { toast("Download error: " + e.message, "error"); }
+}
 async function doDelete() {
   const bot = bots.find(b=>b.id===pendingDeleteId);
   try {
@@ -649,6 +665,7 @@ function renderDetail() {
           ${isRunning?'⏹ Stop':'▶ Start'}
         </button>
         <button class="btn btn-warn" onclick="restartBot('${bot.id}')">🔄 Restart</button>
+        <button class="btn btn-dl" onclick="downloadBot('${bot.id}','${esc(bot.file)}')">⬇ Download</button>
         <button class="btn btn-ghost" onclick="confirmDelete('${bot.id}')">🗑 Delete</button>
       </div>
     </div>
