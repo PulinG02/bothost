@@ -186,7 +186,7 @@ async def deploy_bot(
     bots[bot_id] = {
         "name": name,
         "file": file.filename,
-        "file_path": str(file_path),
+        "file_path": str(file_path.resolve()),
         "token": token,
         "token_masked": masked,
         "status": "stopped",
@@ -262,14 +262,15 @@ def _start_bot(bot_id: str):
     env["TELEGRAM_BOT_TOKEN"] = token
 
     try:
+        abs_path = Path(file_path).resolve()
         proc = subprocess.Popen(
-            [sys.executable, file_path],
+            [sys.executable, str(abs_path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             env=env,
-            cwd=str(Path(file_path).parent),
+            cwd=str(abs_path.parent),
         )
         processes[bot_id] = proc
         bots[bot_id]["status"] = "running"
