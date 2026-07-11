@@ -1,1 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BotHost — Python & Telegram Bot Hosting</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#080808; --bg2:#0d0d0d; --bg3:#0f0f0f; --bg4:#111;
+    --border:#1a1a1a; --border2:#262626;
+    --muted:#3f3f46; --sub:#52525b; --dim:#71717a; --text:#a1a1aa; --bright:#f4f4f5;
+    --blue:#2563eb; --green:#22c55e; --red:#ef4444; --amber:#f59e0b; --purple:#8b5cf6;
+  }
+  html,body { height:100%; background:var(--bg); color:var(--bright); font-family:'Inter',system-ui,sans-serif; font-size:14px; }
+  ::-webkit-scrollbar { width:4px; height:4px; }
+  ::-webkit-scrollbar-track { background:var(--bg2); }
+  ::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
 
+  #app { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  #header { background:var(--bg2); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  #stats-bar { background:var(--bg2); border-bottom:1px solid var(--border); display:flex; flex-shrink:0; }
+  #main { display:flex; flex:1; overflow:hidden; }
+  #sidebar { width:290px; border-right:1px solid var(--border); overflow-y:auto; background:var(--bg3); flex-shrink:0; }
+  #detail { flex:1; overflow-y:auto; padding:28px; }
+
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,#2563eb,#7c3aed); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .logo-name { font-weight:700; font-size:15px; letter-spacing:-.02em; }
+  .logo-sub { font-size:11px; color:var(--sub); }
+  .header-right { display:flex; align-items:center; gap:12px; }
+  .running-count { font-size:12px; color:var(--sub); }
+  .running-count span { color:var(--green); font-weight:600; }
+
+  .btn { border:none; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:opacity .15s; font-family:inherit; }
+  .btn:hover { opacity:.85; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-primary { background:var(--blue); color:#fff; }
+  .btn-stop { background:#1a1a1a; color:var(--red); border:1px solid #2a2a2a; }
+  .btn-start { background:#0f2a1a; color:var(--green); border:1px solid #166534; }
+  .btn-warn { background:#1a1a1a; color:var(--amber); border:1px solid #2a2a2a; }
+  .btn-ghost { background:#1a1a1a; color:var(--dim); border:1px solid #2a2a2a; }
+
+  .stat-item { flex:1; padding:14px 20px; border-right:1px solid var(--border); }
+  .stat-item:last-child { border-right:none; }
+  .stat-label { font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .stat-value { font-size:22px; font-weight:700; letter-spacing:-.03em; }
+  .stat-green { color:var(--green); }
+  .stat-gray { color:#6b7280; }
+
+  .bot-item { padding:16px 18px; border-bottom:1px solid #141414; cursor:pointer; border-left:3px solid transparent; transition:background .15s,border-color .15s; }
+  .bot-item:hover { background:var(--bg4); }
+  .bot-item.active { background:var(--bg4); border-left-color:var(--blue); }
+  .bot-item-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+  .bot-name { font-weight:600; font-size:14px; color:var(--bright); margin-bottom:2px; }
+  .bot-file { font-size:11px; color:var(--sub); font-family:'JetBrains Mono',monospace; }
+  .bot-metrics { display:flex; gap:16px; margin-top:8px; }
+  .metric-mini-label { font-size:10px; color:var(--sub); margin-bottom:3px; }
+  .metric-mini-row { display:flex; align-items:center; gap:6px; }
+  .metric-mini-val { font-size:10px; color:var(--dim); }
+
+  .badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:.04em; text-transform:uppercase; }
+  .badge-running { background:#0f2a1a; color:var(--green); }
+  .badge-stopped { background:#1f1f1f; color:#6b7280; }
+  .badge-error { background:#2a0f0f; color:var(--red); }
+  .badge-dot { width:6px; height:6px; border-radius:50%; }
+  .badge-running .badge-dot { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+  .badge-stopped .badge-dot { background:#4b5563; }
+  .badge-error .badge-dot { background:var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+  .mini-bar-track { width:80px; height:6px; background:#1e1e1e; border-radius:3px; overflow:hidden; }
+  .mini-bar-fill { height:100%; border-radius:3px; transition:width .4s; }
+
+  .empty-state { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--muted); gap:10px; text-align:center; }
+  .empty-state .big-icon { font-size:48px; }
+  .empty-title { font-size:15px; font-weight:600; color:var(--sub); }
+
+  .detail-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+  .detail-title-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .detail-title { font-size:20px; font-weight:700; letter-spacing:-.03em; }
+  .detail-meta { font-size:12px; color:var(--sub); }
+  .detail-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+  .cards-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+  .card { background:var(--bg3); border:1px solid var(--border2); border-radius:10px; padding:16px 18px; }
+  .card-label { font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+  .card-value { font-size:20px; font-weight:700; }
+  .card-bar { height:4px; background:#1e1e1e; border-radius:2px; overflow:hidden; margin-top:10px; }
+  .card-bar-fill { height:100%; border-radius:2px; transition:width .4s; }
+
+  .token-box { background:var(--bg3); border:1px solid var(--border2); border-radius:10px; padding:14px 18px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; }
+  .token-label { font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .token-val { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text); }
+  .token-mask { font-size:11px; color:var(--muted); background:#1a1a1a; padding:4px 8px; border-radius:6px; }
+
+  .section-label { font-size:12px; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; font-weight:600; }
+
+  .log-box { background:#0a0a0a; border:1px solid var(--border2); border-radius:8px; padding:12px 14px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--dim); max-height:280px; overflow-y:auto; line-height:1.8; }
+  .log-empty { color:var(--muted); }
+  .log-ok { color:var(--green); }
+  .log-warn { color:var(--amber); }
+  .log-err, .log-ERR { color:var(--red); }
+  .log-stop { color:var(--red); }
+  .log-count { font-size:11px; color:var(--muted); margin-top:6px; }
+
+  #modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:200; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  #modal-overlay.open { display:flex; }
+  .modal { background:var(--bg4); border:1px solid var(--border2); border-radius:14px; padding:28px; width:440px; box-shadow:0 24px 60px rgba(0,0,0,.6); }
+  .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+  .modal-title { color:var(--bright); font-weight:700; font-size:16px; }
+  .modal-close { background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; }
+
+  .field { margin-bottom:16px; }
+  .field label { display:block; font-size:12px; color:var(--text); text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-bottom:6px; }
+  .field input { display:block; width:100%; background:#0a0a0a; border:1px solid var(--border2); border-radius:8px; padding:10px 12px; color:var(--bright); font-size:14px; outline:none; font-family:inherit; transition:border-color .15s; }
+  .field input:focus { border-color:var(--blue); }
+  .field input.mono { font-family:'JetBrains Mono',monospace; }
+
+  #drop-zone { border:2px dashed var(--border2); border-radius:8px; padding:22px; text-align:center; cursor:pointer; color:var(--sub); font-size:13px; transition:border-color .2s,background .2s; margin-bottom:20px; }
+  #drop-zone:hover,#drop-zone.drag { border-color:var(--blue); background:rgba(37,99,235,.05); }
+  #drop-zone.has-file { border-color:var(--green); color:var(--green); }
+
+  #toast { position:fixed; top:20px; right:20px; z-index:999; pointer-events:none; }
+  .toast-item { background:#14532d; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.5); animation:slideIn .25s ease; margin-bottom:8px; }
+  .toast-item.warn { background:#78350f; }
+  .toast-item.error { background:#7f1d1d; }
+  @keyframes slideIn { from{transform:translateY(-16px);opacity:0}to{transform:translateY(0);opacity:1} }
+
+  #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:300; align-items:center; justify-content:center; }
+  #confirm-overlay.open { display:flex; }
+  .confirm-box { background:var(--bg4); border:1px solid var(--border2); border-radius:12px; padding:24px; width:320px; text-align:center; }
+  .confirm-title { font-size:16px; font-weight:700; margin-bottom:8px; }
+  .confirm-sub { font-size:13px; color:var(--text); margin-bottom:20px; }
+  .confirm-actions { display:flex; gap:10px; justify-content:center; }
+
+  .sidebar-empty { padding:28px 18px; text-align:center; color:var(--muted); font-size:13px; line-height:1.7; }
+  .connecting-msg { padding:16px 18px; font-size:12px; color:var(--amber); }
+
+  @media(max-width:700px) {
+    #sidebar { width:200px; }
+    .cards-grid { grid-template-columns:1fr 1fr; }
+    #detail { padding:16px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div class="logo">
+      <div class="logo-icon">🤖</div>
+      <div>
+        <div class="logo-name">BotHost</div>
+        <div class="logo-sub">Python &amp; Telegram Bot Hosting</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="running-count"><span id="hdr-running">0</span>/<span id="hdr-total">0</span> running</div>
+      <button class="btn btn-primary" onclick="openModal()">➕ Deploy Bot</button>
+    </div>
+  </div>
+
+  <div id="stats-bar">
+    <div class="stat-item"><div class="stat-label">🤖 Total Bots</div><div class="stat-value" id="s-total">0</div></div>
+    <div class="stat-item"><div class="stat-label">🟢 Running</div><div class="stat-value stat-green" id="s-running">0</div></div>
+    <div class="stat-item"><div class="stat-label">⚫ Stopped</div><div class="stat-value stat-gray" id="s-stopped">0</div></div>
+    <div class="stat-item"><div class="stat-label">💾 Total RAM</div><div class="stat-value" id="s-ram">0 MB</div></div>
+  </div>
+
+  <div id="main">
+    <div id="sidebar"><div id="bot-list"></div></div>
+    <div id="detail">
+      <div class="empty-state" id="empty-state">
+        <div class="big-icon">🤖</div>
+        <div class="empty-title">Select a bot to view details</div>
+        <div class="empty-sub" style="font-size:13px;color:var(--muted)">or deploy a new one</div>
+        <button class="btn btn-ghost" style="margin-top:8px" onclick="openModal()">➕ Deploy your first bot</button>
+      </div>
+      <div id="bot-detail" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Deploy Modal -->
+<div id="modal-overlay" onclick="closeModalIfBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">➕ Deploy New Bot</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="field"><label>Bot Name</label><input type="text" id="f-name" placeholder="MyAwesomeBot"/></div>
+    <div class="field"><label>Telegram Bot Token</label><input type="text" id="f-token" class="mono" placeholder="1234567890:AAExampleToken"/></div>
+    <div class="field"><label>Python File (.py)</label></div>
+    <div id="drop-zone" onclick="document.getElementById('f-file').click()" ondragover="doDragOver(event)" ondragleave="doDragLeave()" ondrop="doDrop(event)">
+      Drag &amp; drop .py file or click to browse
+      <input type="file" id="f-file" accept=".py" style="display:none" onchange="onFileSelect(event)"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" id="deploy-btn" onclick="deployBot()">🚀 Deploy Bot</button>
+  </div>
+</div>
+
+<!-- Confirm Delete -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">🗑 Delete Bot?</div>
+    <div class="confirm-sub" id="confirm-msg">Are you sure?</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()">Cancel</button>
+      <button class="btn" style="background:#7f1d1d;color:var(--red);border:1px solid #991b1b" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = "";  // same origin — FastAPI serves this HTML
+let bots = [];
+let selectedId = null;
+let selectedFile = null;
+let pendingDeleteId = null;
+let logSince = {};      // { bot_id: int } — track last log line fetched
+let pollInterval = null;
+let logInterval = null;
+
+// ─── API calls ────────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  try {
+    const res = await fetch(API + path, options);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText);
+    }
+    return await res.json();
+  } catch (e) {
+    toast("API error: " + e.message, "error");
+    throw e;
+  }
+}
+
+async function loadBots() {
+  try {
+    bots = await apiFetch("/api/bots");
+    render();
+  } catch (_) {}
+}
+
+async function loadLogs(bot_id) {
+  const since = logSince[bot_id] || 0;
+  try {
+    const data = await apiFetch(`/api/bots/${bot_id}/logs?since=${since}`);
+    if (data.logs.length > 0) {
+      logSince[bot_id] = data.total;
+      appendLogsToUI(bot_id, data.logs);
+    }
+  } catch (_) {}
+}
+
+function appendLogsToUI(bot_id, newLines) {
+  if (selectedId !== bot_id) return;
+  const box = document.getElementById("log-box");
+  if (!box) return;
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  newLines.forEach(line => {
+    const div = document.createElement("div");
+    div.className = "log-" + classifyLog(line);
+    div.textContent = line;
+    box.appendChild(div);
+  });
+  const countEl = document.getElementById("log-count");
+  if (countEl) countEl.textContent = (logSince[bot_id] || 0) + " log entries";
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function classifyLog(line) {
+  if (line.includes("✅") || line.includes("▶")) return "ok";
+  if (line.includes("⚠️") || line.includes("🔄")) return "warn";
+  if (line.includes("❌") || line.includes("ERR:")) return "err";
+  if (line.includes("🛑")) return "stop";
+  return "";
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+async function deployBot() {
+  const name = document.getElementById("f-name").value.trim();
+  const token = document.getElementById("f-token").value.trim();
+  if (!name) { toast("Enter a bot name", "error"); return; }
+  if (!token) { toast("Enter the Telegram token", "error"); return; }
+  if (!selectedFile) { toast("Select a .py file", "error"); return; }
+
+  const btn = document.getElementById("deploy-btn");
+  btn.disabled = true;
+  btn.textContent = "Deploying...";
+
+  const form = new FormData();
+  form.append("name", name);
+  form.append("token", token);
+  form.append("file", selectedFile);
+
+  try {
+    const res = await fetch(API + "/api/bots/deploy", { method: "POST", body: form });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Failed"); }
+    const data = await res.json();
+    toast(`${name} deployed! 🚀`);
+    closeModal();
+    await loadBots();
+    selectedId = data.id;
+    logSince[data.id] = 0;
+    render();
+  } catch (e) {
+    toast("Deploy failed: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🚀 Deploy Bot";
+  }
+}
+
+async function toggleBot(id) {
+  const bot = bots.find(b => b.id === id);
+  if (!bot) return;
+  if (bot.status === "running") {
+    await apiFetch(`/api/bots/${id}/stop`, { method: "POST" });
+    toast(`${bot.name} stopped`, "warn");
+  } else {
+    await apiFetch(`/api/bots/${id}/start`, { method: "POST" });
+    toast(`${bot.name} started`);
+    logSince[id] = logSince[id] || 0;
+  }
+  await loadBots();
+  render();
+}
+
+async function restartBot(id) {
+  const bot = bots.find(b => b.id === id);
+  if (!bot) return;
+  await apiFetch(`/api/bots/${id}/restart`, { method: "POST" });
+  toast(`${bot.name} restarted`);
+  await loadBots();
+  render();
+}
+
+function confirmDelete(id) {
+  const bot = bots.find(b => b.id === id);
+  if (!bot) return;
+  pendingDeleteId = id;
+  document.getElementById("confirm-msg").textContent = `Delete "${bot.name}"? This cannot be undone.`;
+  document.getElementById("confirm-ok").onclick = doDelete;
+  document.getElementById("confirm-overlay").classList.add("open");
+}
+
+async function doDelete() {
+  const bot = bots.find(b => b.id === pendingDeleteId);
+  try {
+    await apiFetch(`/api/bots/${pendingDeleteId}`, { method: "DELETE" });
+    if (selectedId === pendingDeleteId) selectedId = null;
+    toast(`${bot?.name || "Bot"} deleted`, "error");
+    closeConfirm();
+    await loadBots();
+    render();
+  } catch (_) {}
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const total = bots.length;
+  const running = bots.filter(b => b.status === "running").length;
+  const stopped = bots.filter(b => b.status === "stopped").length;
+  const ram = bots.reduce((a, b) => a + (b.memory || 0), 0).toFixed(0);
+  document.getElementById("s-total").textContent = total;
+  document.getElementById("s-running").textContent = running;
+  document.getElementById("s-stopped").textContent = stopped;
+  document.getElementById("s-ram").textContent = ram + " MB";
+  document.getElementById("hdr-running").textContent = running;
+  document.getElementById("hdr-total").textContent = total;
+  renderSidebar();
+  renderDetailStatic();
+}
+
+function renderSidebar() {
+  const list = document.getElementById("bot-list");
+  if (bots.length === 0) {
+    list.innerHTML = '<div class="sidebar-empty">No bots yet.<br/>Click "Deploy Bot" to start.</div>';
+    return;
+  }
+  list.innerHTML = bots.map(b => `
+    <div class="bot-item ${selectedId === b.id ? 'active' : ''}" onclick="selectBot('${b.id}')">
+      <div class="bot-item-top">
+        <div>
+          <div class="bot-name">${esc(b.name)}</div>
+          <div class="bot-file">${esc(b.file)}</div>
+        </div>
+        ${badge(b.status)}
+      </div>
+      ${b.status === "running" ? `
+      <div class="bot-metrics">
+        <div class="metric-mini">
+          <div class="metric-mini-label">CPU</div>
+          <div class="metric-mini-row">
+            <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.min((b.cpu||0)/15*100,100)}%;background:#3b82f6"></div></div>
+            <span class="metric-mini-val">${(b.cpu||0).toFixed(1)}%</span>
+          </div>
+        </div>
+        <div class="metric-mini">
+          <div class="metric-mini-label">RAM</div>
+          <div class="metric-mini-row">
+            <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.min(b.memory||0,100)}%;background:#8b5cf6"></div></div>
+            <span class="metric-mini-val">${(b.memory||0).toFixed(0)}MB</span>
+          </div>
+        </div>
+      </div>` : ""}
+    </div>
+  `).join("");
+}
+
+function renderDetailStatic() {
+  const bot = bots.find(b => b.id === selectedId);
+  const emptyEl = document.getElementById("empty-state");
+  const detailEl = document.getElementById("bot-detail");
+  if (!bot) {
+    emptyEl.style.display = "flex";
+    detailEl.style.display = "none";
+    return;
+  }
+  emptyEl.style.display = "none";
+  detailEl.style.display = "block";
+  const isRunning = bot.status === "running";
+
+  detailEl.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <div class="detail-title-row">
+          <span class="detail-title">${esc(bot.name)}</span>
+          ${badge(bot.status)}
+        </div>
+        <div class="detail-meta">📄 ${esc(bot.file)} &nbsp;|&nbsp; 🕐 Uptime: ${esc(bot.uptime || "—")}</div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn ${isRunning ? 'btn-stop' : 'btn-start'}" onclick="toggleBot('${bot.id}')">
+          ${isRunning ? '⏹ Stop' : '▶ Start'}
+        </button>
+        <button class="btn btn-warn" onclick="restartBot('${bot.id}')">🔄 Restart</button>
+        <button class="btn btn-ghost" onclick="confirmDelete('${bot.id}')">🗑 Delete</button>
+      </div>
+    </div>
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-label">⚡ CPU Usage</div>
+        <div class="card-value">${(bot.cpu||0).toFixed(1)}%</div>
+        <div class="card-bar"><div class="card-bar-fill" style="width:${Math.min((bot.cpu||0)/15*100,100)}%;background:#3b82f6"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-label">💾 Memory</div>
+        <div class="card-value">${(bot.memory||0).toFixed(0)} MB</div>
+        <div class="card-bar"><div class="card-bar-fill" style="width:${Math.min(bot.memory||0,100)}%;background:#8b5cf6"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-label">📶 Status</div>
+        <div class="card-value" style="color:${isRunning ? 'var(--green)' : '#6b7280'}">${isRunning ? 'Active' : 'Offline'}</div>
+      </div>
+    </div>
+    <div class="token-box">
+      <div>
+        <div class="token-label">🔑 Telegram Token</div>
+        <div class="token-val">${esc(bot.token || "—")}</div>
+      </div>
+      <span class="token-mask">masked</span>
+    </div>
+    <div class="section-label">📋 Live Logs</div>
+    <div class="log-box" id="log-box"><div class="log-empty">Loading logs...</div></div>
+    <div class="log-count" id="log-count">0 log entries</div>
+  `;
+
+  // Load logs fresh when switching bots
+  logSince[bot.id] = 0;
+  const box = document.getElementById("log-box");
+  box.innerHTML = "";
+  loadLogs(bot.id);
+}
+
+function selectBot(id) {
+  selectedId = id;
+  render();
+}
+
+// ─── Polling ──────────────────────────────────────────────────────────────────
+function startPolling() {
+  // Poll bot list every 3s
+  pollInterval = setInterval(async () => {
+    await loadBots();
+  }, 3000);
+
+  // Poll logs every 1.5s for selected bot
+  logInterval = setInterval(() => {
+    if (selectedId) loadLogs(selectedId);
+  }, 1500);
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById("f-name").value = "";
+  document.getElementById("f-token").value = "";
+  document.getElementById("f-file").value = "";
+  selectedFile = null;
+  resetDropZone();
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
+function closeModal() { document.getElementById("modal-overlay").classList.remove("open"); }
+function closeModalIfBg(e) { if (e.target === document.getElementById("modal-overlay")) closeModal(); }
+function closeConfirm() { pendingDeleteId = null; document.getElementById("confirm-overlay").classList.remove("open"); }
+
+function doDragOver(e) { e.preventDefault(); document.getElementById("drop-zone").classList.add("drag"); }
+function doDragLeave() { document.getElementById("drop-zone").classList.remove("drag"); }
+function doDrop(e) {
+  e.preventDefault(); doDragLeave();
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith(".py")) setFile(f);
+  else toast("Please drop a .py file", "error");
+}
+function onFileSelect(e) { if (e.target.files[0]) setFile(e.target.files[0]); }
+function setFile(f) {
+  selectedFile = f;
+  const dz = document.getElementById("drop-zone");
+  dz.classList.remove("drag"); dz.classList.add("has-file");
+  dz.textContent = "📄 " + f.name;
+}
+function resetDropZone() {
+  const dz = document.getElementById("drop-zone");
+  dz.classList.remove("drag","has-file");
+  dz.innerHTML = 'Drag &amp; drop .py file or click to browse<input type="file" id="f-file" accept=".py" style="display:none" onchange="onFileSelect(event)"/>';
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function badge(status) {
+  const labels = { running:"Running", stopped:"Stopped", error:"Error" };
+  return `<span class="badge badge-${status}"><span class="badge-dot"></span>${labels[status]||status}</span>`;
+}
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function toast(msg, type="success") {
+  const c = document.getElementById("toast");
+  const el = document.createElement("div");
+  el.className = "toast-item" + (type !== "success" ? " "+type : "");
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadBots().then(() => { render(); startPolling(); });
+</script>
+</body>
+</html>
