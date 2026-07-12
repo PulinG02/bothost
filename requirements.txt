@@ -8,3 +8,5 @@ asyncio-throttle
 colorama
 pycryptodome
 requests
+pyrogram
+tgcrypto
